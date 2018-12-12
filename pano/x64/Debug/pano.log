@@ -1,0 +1,37 @@
+﻿  main.cpp
+d:\workspace\vs2017\pano\pano\main.cpp(36): warning C4244: “=”: 从“double”转换到“int”，可能丢失数据
+d:\workspace\vs2017\pano\pano\main.cpp(37): warning C4244: “=”: 从“double”转换到“int”，可能丢失数据
+d:\workspace\vs2017\pano\pano\main.cpp(43): warning C4244: “=”: 从“double”转换到“int”，可能丢失数据
+d:\workspace\vs2017\pano\pano\main.cpp(44): warning C4244: “=”: 从“double”转换到“int”，可能丢失数据
+d:\workspace\vs2017\pano\pano\main.cpp(80): warning C4244: “初始化”: 从“float”转换到“int”，可能丢失数据
+d:\workspace\vs2017\pano\pano\main.cpp(80): warning C4244: “初始化”: 从“float”转换到“const int”，可能丢失数据
+d:\workspace\vs2017\pano\pano\main.cpp(101): warning C4244: “参数”: 从“_Tp”转换到“_Tp”，可能丢失数据
+          with
+          [
+              _Tp=double
+          ]
+          and
+          [
+              _Tp=int
+          ]
+d:\workspace\vs2017\pano\pano\main.cpp(149): warning C4244: “初始化”: 从“float”转换到“int”，可能丢失数据
+d:\workspace\vs2017\pano\pano\main.cpp(149): warning C4244: “初始化”: 从“float”转换到“const int”，可能丢失数据
+d:\workspace\vs2017\pano\pano\main.cpp(171): warning C4244: “参数”: 从“_Tp”转换到“_Tp”，可能丢失数据
+          with
+          [
+              _Tp=double
+          ]
+          and
+          [
+              _Tp=int
+          ]
+d:\workspace\vs2017\pano\pano\main.cpp(172): warning C4244: “参数”: 从“_Tp”转换到“const _Ty”，可能丢失数据
+          with
+          [
+              _Tp=double
+          ]
+          and
+          [
+              _Ty=int
+          ]
+  pano.vcxproj -> D:\WorkSpace\VS2017\pano\x64\Debug\pano.exe
