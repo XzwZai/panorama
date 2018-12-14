@@ -5,14 +5,14 @@
 #include <opencv2/opencv.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/xfeatures2d.hpp>
-
+#include "cylinder.h"
 
 using namespace cv;
 using namespace std;
 const float GOOD_MATCH_PERCENT = 0.15f;
 
-Size imgSize = Size(320, 480);
-
+Size imgSize = Size(640, 960);
+int f = 660;
 int maxNum(int a,int b)
 {
 	return a > b ? a : b;
@@ -33,10 +33,10 @@ Mat normalizeMat(Mat& m)
 }
 
 Mat cylinder(Mat imgIn, int f = 330) {
-	int colNum, rowNum; colNum = 2 * f*atan(0.5*imgIn.cols / f);//ÖùÃæÍ¼Ïñ¿í 
-	rowNum = 0.5*imgIn.rows*f / sqrt(pow(f, 2)) + 0.5*imgIn.rows;//ÖùÃæÍ¼Ïñ¸ß 
+	int colNum, rowNum; colNum = 2 * f*atan(0.5*imgIn.cols / f);
+	rowNum = 0.5*imgIn.rows*f / sqrt(pow(f, 2)) + 0.5*imgIn.rows;
 	Mat imgOut = Mat::zeros(rowNum, colNum, CV_8UC3); Mat_<uchar> im1(imgIn);
-	Mat_<uchar> im2(imgOut); //ÕýÏò²åÖµ 
+	Mat_<uchar> im2(imgOut); 
 	int x1(0), y1(0);
 	for (int i = 0; i < imgIn.rows; i++)
 		for (int j = 0; j < imgIn.cols; j++) {
@@ -213,14 +213,33 @@ int main(int argc, char** argv)
 	string imgpath;
 	vector<Mat> imgs;
 	
-	while (files >> imgpath)
+	/*while (files >> imgpath)
 	{
 		Mat img = imread(imgpath);
-		resize(img, img, imgSize);
-		img = cylinder(img);
+		resize(img, img, imgSize);		
 		imgs.push_back(img);
 	}
-	stitch2(imgs);
-
+	cout << "read imgs" << endl;*/
+	IdealCylinderStitcher cs;
+	//Mat stitched = cs.stitch(imgs, f);
+	/*imshow("stitched", stitched);
+	imwrite("2.jpg", stitched);*/
+	//cs.calFocus(imgs[0], imgs[1]);
+	
+	Mat img1 = imread("d://1.jpg");
+	Mat img2 = imread("d://3.jpg");
+	vector<Point> ps1, ps2;
+	ps1.push_back(Point(0, 0));
+	ps1.push_back(Point(0, 1));
+	ps1.push_back(Point(1, 0));
+	ps1.push_back(Point(1, 1));
+	ps2.push_back(Point(0, 1));
+	ps2.push_back(Point(1, 0));
+	ps2.push_back(Point(1, 1));
+	ps2.push_back(Point(0, 0));
+	Mat h;
+	h = findHomography(ps1, ps2, RANSAC);
+	cout << h << endl;
+	//cs.calFocus(img1, img2);
 	waitKey(0);
 }
