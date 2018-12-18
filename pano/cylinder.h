@@ -24,7 +24,7 @@ public:
 		return p.x < width && p.x >= 0 && p.y < height && p.y >= 0;
 	}
 
-	void calFocus(Mat &img1,Mat& img2)
+	Mat getHomography(Mat &img1,Mat& img2)
 	{
 		vector<KeyPoint> kps1, kps2;
 		Mat descriptors1, descriptors2;
@@ -45,9 +45,9 @@ public:
 		h = findHomography(points2, points1, RANSAC);
 		Mat img;
 		drawMatches(img1, kps1, img2, kps2, matches, img);
-		imshow("1", img);
-		cout << h << endl;
-				
+		//imshow("1", img);
+		//cout << h << endl;
+		return h;
 	}
 	
 	Mat cylindrical(Mat& imgIn, int f,int mode) {
@@ -124,7 +124,7 @@ public:
 
 	}
 
-	Mat getHomography(Mat& img1,Mat& img2)
+	/*Mat getHomography(Mat& img1,Mat& img2)
 	{		
 		vector<KeyPoint> kps1, kps2;
 		Mat descriptors1, descriptors2;
@@ -157,7 +157,45 @@ public:
 		imshow("match", imgMatch);
 		waitKey(0);
 		return img2;
+	}*/
+
+	void focalsFromHomography(const Mat& H, double &f0, double &f1, bool &f0_ok, bool &f1_ok)
+		//H表示单应矩阵
+		//f0和f1分别表示单应矩阵H所转换的两幅图像的焦距
+		//f0_ok和f1_ok分别表示f0和f1是否评估正确
+	{
+		//确保H的数据类型和格式正确
+		CV_Assert(H.type() == CV_64F && H.size() == Size(3, 3));
+		cout << H << endl;
+		const double* h = reinterpret_cast<const double*>(H.data);    //赋值指针
+		//分别表示式43和式44，或式47和式48的分母
+		double d1, d2; // Denominators
+		//分别表示式43和式44，或式47和式48
+		double v1, v2; // Focal squares value candidates
+
+		f1_ok = true;
+		d1 = h[6] * h[7];    //式48的分母
+		d2 = (h[7] - h[6]) * (h[7] + h[6]);    //式47的分母
+		v1 = -(h[0] * h[1] + h[3] * h[4]) / d1;    //式48
+		v2 = (h[0] * h[0] + h[3] * h[3] - h[1] * h[1] - h[4] * h[4]) / d2;    //式47
+		if (v1 < v2) std::swap(v1, v2);    //使v1不小于v2
+		//表示到底选取式47还是式48作为f1
+		if (v1 > 0 && v2 > 0) f1 = sqrt(std::abs(d1) > std::abs(d2) ? v1 : v2);
+		else if (v1 > 0) f1 = sqrt(v1);    //v2小于0，则f1一定是v1的平方根
+		else f1_ok = false;    //v1和v2都小于0，则没有得到f1
+
+		f0_ok = true;
+		d1 = h[0] * h[3] + h[1] * h[4];    //式44的分母
+		d2 = h[0] * h[0] + h[1] * h[1] - h[3] * h[3] - h[4] * h[4];    //式43的分母
+		v1 = -h[2] * h[5] / d1;    //式44
+		v2 = (h[5] * h[5] - h[2] * h[2]) / d2;    //式43
+		if (v1 < v2) std::swap(v1, v2);    //使v1不小于v2
+		//表示到底选取式44还是式43作为f0
+		if (v1 > 0 && v2 > 0) f0 = sqrt(std::abs(d1) > std::abs(d2) ? v1 : v2);
+		else if (v1 > 0) f0 = sqrt(v1);    //v2小于0，则f1一定是v1的开根号
+		else f0_ok = false;    //v1和v2都小于0，则没有得到f1
 	}
+
 
 protected:
 	Ptr<Feature2D> sift;
@@ -193,6 +231,7 @@ public:
 		for (int i = 1; i < imgs.size(); i++)
 		{
 			Mat h = homo * getHomography(imgs[i - 1], imgs[i]);
+			
 			IMGs.push_back(IMG(imgs[i], h));
 			h.copyTo(homo);
 		}

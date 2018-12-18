@@ -220,25 +220,57 @@ int main(int argc, char** argv)
 		imgs.push_back(img);
 	}
 	cout << "read imgs" << endl;*/
-	IdealCylinderStitcher cs;
+	CylinderStitcher cs;
+	//vector<double> all_focus;
+	//double f0, f1;
+	//bool f0_ok, f1_ok;
+	//Mat t0 = Mat::eye(Size(3, 3), CV_64FC1);
+	//Mat t1 = Mat::eye(Size(3, 3), CV_64FC1);
+	//t0.at<double>(0, 2) = -imgs[0].cols / 2;
+	//t0.at<double>(1, 2) = -imgs[0].rows / 2;
+	//t1.at<double>(0, 2) = imgs[0].cols / 2;
+	//t1.at<double>(1, 2) = imgs[0].rows / 2;
+	//for (int i = 1; i < imgs.size(); i++) {
+	//	Mat h = cs.getHomography(imgs[i-1], imgs[i]);
+	//	//cout << h << endl;
+	//	//h = t0 * h * t1;
+	//	//cout << h << endl;
+	//	cs.focalsFromHomography(h, f0, f1, f0_ok, f1_ok);
+	//	cout << f0 << " " << f1 << " " << f0_ok << " " << f1_ok << " " << sqrt(f0*f1) << endl;
+	//	all_focus.push_back(sqrt(f0*f1));
+	//}
+	//sort(all_focus.begin(), all_focus.end());
+	//double focus;
+	//if (all_focus.size() % 2 == 0) {
+	//	focus = all_focus[all_focus.size() / 2];
+	//}
+	//else {
+	//	focus = (all_focus[all_focus.size() / 2 + 1] + all_focus[all_focus.size() / 2]) * 0.5;
+	//}
+	//cout << focus << endl;	
 	//Mat stitched = cs.stitch(imgs, f);
-	/*imshow("stitched", stitched);
-	imwrite("2.jpg", stitched);*/
+	//imshow("stitched", stitched);
+	//imwrite("2.jpg", stitched);
 	//cs.calFocus(imgs[0], imgs[1]);
 	
-	Mat img1 = imread("d://1.jpg");
-	Mat img2 = imread("d://3.jpg");
+	/*Mat img1 = imread("d://1.jpg");
+	Mat img2 = imread("d://3.jpg");*/
 	vector<Point> ps1, ps2;
-	ps1.push_back(Point(0, 0));
-	ps1.push_back(Point(0, 1));
-	ps1.push_back(Point(1, 0));
-	ps1.push_back(Point(1, 1));
-	ps2.push_back(Point(0, 1));
-	ps2.push_back(Point(1, 0));
-	ps2.push_back(Point(1, 1));
-	ps2.push_back(Point(0, 0));
+	ps1.push_back(Point(600,800));
+	ps1.push_back(Point(800, 600));
+	ps1.push_back(Point(800, 0));
+	ps1.push_back(Point(600, 0));
+	ps2.push_back(Point(266.7, 777.1));
+	ps2.push_back(Point(400, 682.8));
+	ps2.push_back(Point(400, 117.1));
+	ps2.push_back(Point(266.7,22.9));
 	Mat h;
-	h = findHomography(ps1, ps2, RANSAC);
+	double f0, f1;
+	bool f0_ok, f1_ok;
+	h = findHomography(ps1, ps2, RANSAC);	
+	
+	cs.focalsFromHomography(h, f0, f1, f0_ok, f1_ok);
+	cout << f0 << " " << f1 << " " << f0_ok << " " << f1_ok << " " << sqrt(f0*f1) << endl;
 	cout << h << endl;
 	//cs.calFocus(img1, img2);
 	waitKey(0);
