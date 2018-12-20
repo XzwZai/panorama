@@ -119,8 +119,15 @@ public:
 			cout << K << endl;
 			cout << R << endl;
 			cornors[i] = warper.warp(imgs[i], K, R, INTER_LINEAR, BORDER_REFLECT, images_warped[i]);
+			Mat mask, mask_warped;
+			mask.create(imgs[i].size(), CV_8U);
+			mask.setTo(Scalar::all(255));
+			warper.warp(mask, K, R, INTER_LINEAR, BORDER_CONSTANT, mask_warped);
 			cout << cornors[i] << endl;
 			imshow("1", images_warped[i]);
+			Mat img_mask;
+			images_warped[i].copyTo(img_mask, mask_warped);
+			imshow("2", img_mask);
 			waitKey(0);
 		}
 	}

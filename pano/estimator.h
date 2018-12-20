@@ -48,7 +48,7 @@ public:
 		BestOf2NearestMatcher matcher(false, 0.3f, 6, 6);
 		matcher(features, pairwise_matches);
 		for (int i = 1; i < imgs.size(); i++) {
-			MatchesInfo m = pairwise_matches[i * imgs.size() + i - 1];
+			MatchesInfo m = pairwise_matches[i * imgs.size() + i - 1];			
 			Mat h = m.H;
 			cout << h << endl;
 			cout << m.src_img_idx << " " << m.dst_img_idx << endl;
@@ -112,8 +112,8 @@ public:
 			Mat th = t_inv * h * t;
 			homos.push_back(th);
 		}
-		//estimateFocal(homos, focal);
-		focal = 660;
+		estimateFocal(homos, focal);
+		//focal = 660;
 		for (int i = 0; i < imgs.size(); i++) {
 			Camera c = Camera();
 			c.focal = focal;			
@@ -198,13 +198,14 @@ public:
 	{
 		vector<KeyPoint> kps1, kps2;
 		Mat descriptors1, descriptors2;
+		Mat imgMatch;;
 		sift->detectAndCompute(img1, Mat(), kps1, descriptors1);
 		sift->detectAndCompute(img2, Mat(), kps2, descriptors2);
-		vector<DMatch> matches, matches1;
+		vector<DMatch> matches;
 		matcher.match(descriptors1, descriptors2, matches, Mat());
 		sort(matches.begin(), matches.end());
 		const int numGoodMatches = matches.size() * 0.15;
-		matches.erase(matches.begin() + numGoodMatches, matches.end());
+		//matches.erase(matches.begin() + numGoodMatches, matches.end());
 		Mat h;
 		std::vector<Point2f> points1, points2;
 		for (size_t i = 0; i < matches.size(); i++)
@@ -212,9 +213,56 @@ public:
 			points1.push_back(kps1[matches[i].queryIdx].pt);
 			points2.push_back(kps2[matches[i].trainIdx].pt);
 		}
-		h = findHomography(points2, points1, RANSAC);
-		Mat img;
-		drawMatches(img1, kps1, img2, kps2, matches, img);
+		findHomography(points2, points1, RANSAC);
+		vector<uchar> inlineMask;
+		vector<DMatch> matches1, matches2;
+		int inlineNum = 0;
+		float confidence;
+		h = findHomography(points1, points2, inlineMask, RANSAC);
+		points1.clear();
+		points2.clear();
+		for (int i = 0; i < inlineMask.size(); i++)
+		{
+			if (inlineMask[i]) {
+				inlineNum++;
+				matches1.push_back(matches[i]);				
+				points1.push_back(kps1[matches[i].queryIdx].pt);
+				points2.push_back(kps2[matches[i].trainIdx].pt);
+			}
+		}		
+		drawMatches(img1, kps1, img2, kps2, matches1, imgMatch);
+		/*imshow("match1", imgMatch);
+		waitKey(0);*/
+		if (inlineMask.size() > 0) {
+			confidence = inlineNum / (8 + 0.3 * inlineMask.size());			
+		}
+		else {
+			confidence = 0;
+		}
+		cout << confidence;	
+		inlineMask.clear();
+		inlineNum = 0;
+		findHomography(points2, points1, inlineMask, RANSAC);
+
+		for (int i = 0; i < inlineMask.size(); i++)
+		{
+			if (inlineMask[i]) {
+				matches2.push_back(matches1[i]);
+				inlineNum++;
+			}
+		}
+		if (inlineMask.size() > 0) {
+			confidence = inlineNum / (8 + 0.3 * inlineMask.size());
+		}
+		else {
+			confidence = 0;
+		}
+		cout << " " << confidence << endl;
+		
+		drawMatches(img1, kps1, img2, kps2, matches2, imgMatch);
+		/*imshow("match2", imgMatch);
+		waitKey(0);*/
+		//waitKey(0);
 		/*imshow("1", img);
 		waitKey(0);*/
 		//cout << h << endl;
