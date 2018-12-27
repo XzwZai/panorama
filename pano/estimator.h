@@ -124,6 +124,9 @@ public:
 			Mat h = homos[i - 1];
 			Mat K = cameras[i].K;
 			Mat R = K.inv() * h * K;
+			//cout << "R from: " << R << endl;
+			printf("R from%dto%d \n: ", i - 1, i);
+			cout << R << endl;
 			cameras[i].R = cameras[i - 1].R * R;
 		}
 		for (int i = 0; i < imgs.size(); i++) {
@@ -212,13 +215,12 @@ public:
 		{
 			points1.push_back(kps1[matches[i].queryIdx].pt);
 			points2.push_back(kps2[matches[i].trainIdx].pt);
-		}
-		findHomography(points2, points1, RANSAC);
+		}		
 		vector<uchar> inlineMask;
 		vector<DMatch> matches1, matches2;
 		int inlineNum = 0;
 		float confidence;
-		h = findHomography(points1, points2, inlineMask, RANSAC);
+		h = findHomography(points2, points1, inlineMask, RANSAC);
 		points1.clear();
 		points2.clear();
 		for (int i = 0; i < inlineMask.size(); i++)
@@ -242,7 +244,7 @@ public:
 		cout << confidence;	
 		inlineMask.clear();
 		inlineNum = 0;
-		findHomography(points2, points1, inlineMask, RANSAC);
+		h = findHomography(points2, points1, inlineMask, RANSAC);
 
 		for (int i = 0; i < inlineMask.size(); i++)
 		{

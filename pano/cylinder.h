@@ -29,8 +29,8 @@ public:
 		{
 			int colNum, rowNum; colNum = 2 * f*atan(0.5*imgIn.cols / f);
 			rowNum = 0.5*imgIn.rows*f / sqrt(pow(f, 2)) + 0.5*imgIn.rows;
-			Mat imgOut = Mat::zeros(rowNum, colNum, CV_8UC3); Mat_<uchar> im1(imgIn);
-			Mat_<uchar> im2(imgOut);
+			Mat imgOut = Mat::zeros(rowNum, colNum, CV_8UC3); 
+			imgOut.setTo(255);
 			int x1(0), y1(0);
 			for (int i = 0; i < imgIn.rows; i++)
 				for (int j = 0; j < imgIn.cols; j++) {
@@ -60,8 +60,7 @@ public:
 					nears.push_back(Point(int(x) + 1, int(y)));
 					nears.push_back(Point(int(x), int(y) + 1));
 					nears.push_back(Point(int(x) + 1, int(y) + 1));
-					float totalDis(0);
-					//cout << x << " " << y << endl;
+					float totalDis(0);					
 					if (inImg(Point(x, y), width, height))
 					{
 						for (int k = 0; k < nears.size(); k++)
@@ -81,21 +80,11 @@ public:
 						}
 						imgOut.at<Vec3b>(i, j) = color;
 					}
-					/*if (i == height / 2 && j == width / 2)
-					{
-						cout << x << " " << y << endl;
-					}*/
-
 				}
 			}
 			imgOut = imgOut(Rect((imgIn.cols - colNum) / 2, 0, colNum, imgIn.rows));
 			return imgOut;
 		}		
-	}
-
-	Mat getHomography(vector<Point> ps1, vector<Point> ps2)
-	{
-
 	}	
 
 	void stitch(vector<Mat> &imgs)
@@ -104,36 +93,59 @@ public:
 		MyEstimator estimator;
 		vector<Camera> cameras;
 		estimator.estimate(imgs, cameras);
+		cout << "focal : " << cameras[0].focal << endl;
 		/*for (int i = 0; i < cameras.size(); i++) {
 			cout << cameras[i].K << endl;
 			cout << cameras[i].R << endl;
 		}*/
 		vector<Point> cornors(imgs.size());
 		vector<Mat> images_warped(imgs.size());
-		MyWarper warper(660);
+		vector<Mat> masks_warped(imgs.size());
+		MyWarper warper(cameras[0].focal);
 		for (int i = 0; i < imgs.size(); i++)
 		{
 			Mat_<float> K,R;
 			cameras[i].K.convertTo(K, CV_32F);
 			cameras[i].R.convertTo(R, CV_32F);
-			cout << K << endl;
+			//cout << K << endl;
+			printf("img%d :\n", i);
 			cout << R << endl;
+			
 			cornors[i] = warper.warp(imgs[i], K, R, INTER_LINEAR, BORDER_REFLECT, images_warped[i]);
 			Mat mask, mask_warped;
 			mask.create(imgs[i].size(), CV_8U);
 			mask.setTo(Scalar::all(255));
-			warper.warp(mask, K, R, INTER_LINEAR, BORDER_CONSTANT, mask_warped);
+			warper.warp(mask, K, R, INTER_LINEAR, BORDER_CONSTANT, masks_warped[i]);
 			cout << cornors[i] << endl;
-			imshow("1", images_warped[i]);
+			//imshow("1", images_warped[i]);
 			Mat img_mask;
-			images_warped[i].copyTo(img_mask, mask_warped);
-			imshow("2", img_mask);
-			waitKey(0);
+			images_warped[i].copyTo(img_mask, masks_warped[i]);
+			//imshow("2", img_mask);
+			//waitKey(0);
 		}
+		vector<Point> ps;
+		for (int i = 0; i < cornors.size(); i++) {
+			ps.push_back(cornors[i]);
+			Point br;
+			br.x = cornors[i].x + images_warped[i].size().width;
+			br.y = cornors[i].y + images_warped[i].size().height;
+			ps.push_back(br);
+		}
+		Rect bound = boundingRect(ps);
+		Mat result = Mat::zeros(bound.size(), CV_8UC3);
+		for (int i = 0; i < imgs.size(); i++)
+		{
+			Point cornor = cornors[i];
+			cornor.x -= bound.tl().x;
+			cornor.y -= bound.tl().y;
+			Rect r(cornor.x, cornor.y, images_warped[i].size().width, images_warped[i].size().height);
+			images_warped[i].copyTo(result(r), masks_warped[i]);
+		}
+		imshow("result", result);
+		imwrite("result.jpg", result);
+		waitKey(0);
 	}
-
 	
-
 
 protected:
 	Ptr<Feature2D> sift;
@@ -159,9 +171,13 @@ public:
 
 	Mat stitch(vector<Mat> imgs,int f)
 	{		
+		vector<Mat> masks_warped;
 		for (int i = 0; i < imgs.size(); i++)
 		{
 			imgs[i] = cylindrical(imgs[i], f, 1);
+			Mat mask;
+			mask = cylindrical(mask, f, 1);
+			masks_warped.push_back(mask);
 		}
 		cout << "cylindrical" << endl;
 		vector<IMG> IMGs;
@@ -183,11 +199,12 @@ public:
 		for (int i = 0; i < IMGs.size(); i++)
 		{
 			Rect r = Rect(IMGs[i].homo.at<double>(0, 2), 0, IMGs[i].img.cols, IMGs[i].img.rows);
-			IMGs[i].img.copyTo(stitch(r));
+			IMGs[i].img.copyTo(stitch(r), masks_warped[i]);
 			/*imshow("1", stitch);
 			waitKey(0);*/
 		}		
-		//imshow("stitch", stitch);
+		imshow("stitch", stitch);
+		imwrite("idealcs.jpg", stitch);
 		return stitch;
 	}
 
@@ -198,6 +215,7 @@ public:
 		sift->detectAndCompute(img1, Mat(), kps1, descriptors1);
 		sift->detectAndCompute(img2, Mat(), kps2, descriptors2);
 		vector<DMatch> matches, matches1;
+		cout << kps1.size() << descriptors1.rows << descriptors1.cols << endl;
 		matcher.match(descriptors1, descriptors2, matches, Mat());
 		float horizonTrans, totalTrans(0);
 		for (vector<DMatch>::iterator it = matches.begin(); it != matches.end(); it++)

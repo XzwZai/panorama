@@ -6,7 +6,9 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/xfeatures2d.hpp>
 #include "cylinder.h"
-
+#include "wraper.h"
+#include "kdtree.h"
+#include "matcher.h"
 using namespace cv;
 using namespace std;
 const float GOOD_MATCH_PERCENT = 0.15f;
@@ -232,86 +234,43 @@ void on_mouse2(int EVENT, int x, int y, int flags, void* userdata) {
 	}
 }
 
+void testMyMatcher()
+{
+	Mat img = 
+}
+
 int main(int argc, char** argv)
 {
 	
-	ifstream files("D:/WorkSpace/data/pano/Synthetic/imgs1.txt");
+	ifstream files("D:/WorkSpace/data/pano/Synthetic/imgs.txt");
 	//ifstream files("C:/Users/China/Downloads/example-data/example-data/zijing/imgs.txt");
 	string imgpath;
 	vector<Mat> imgs;
 	CylinderStitcher cs;
-	
-	while (files >> imgpath)
+	IdealCylinderStitcher ics;
+	//while (files >> imgpath)
+	//{
+	//	Mat img = imread(imgpath);
+	//	resize(img, img, imgSize);		
+	//	imgs.push_back(img);
+	//}
+	//cout << "read imgs" << endl;
+	////cs.stitch(imgs);
+	//ics.stitch(imgs, f);
+	/*Mat mat = (Mat_<double>(6, 2) << 2, 3, 4, 7, 5, 4, 9, 6, 8, 1, 7, 2);
+	Kdtree kdtree(mat);
+	feature* f = (feature*)calloc(1,sizeof(feature));
+	f->descr = (double*)calloc(2, sizeof(double));
+	f->descr[0] = 5.5; f->descr[1] = 5;
+	vector<bfeature> result = kdtree.kdtree_bbf_knn(f,6);
+	for (int i = 0; i < result.size(); i++)
 	{
-		Mat img = imread(imgpath);
-		resize(img, img, imgSize);		
-		imgs.push_back(img);
-	}
-	cout << "read imgs" << endl;
-	cs.stitch(imgs);
-	/*
-	Mat stitched = cs.stitch(imgs, f);
-	imshow("stitched", stitched);
-	imwrite("2.jpg", stitched);
-	cs.calFocus(imgs[0], imgs[1]);*/
+		cout << result[i].d << " ";
+		for (int j = 0; j < 2; j++)
+		{
+			cout << result[i].feat->descr[j] << " ";
+		}
+		cout << endl;
+	}*/
 	
-	/*Mat img1 = imread("d://1.jpg");
-	Mat img2 = imread("d://3.jpg");*/
-
-
-	/*vector<Point> ps1, ps2;
-	ps1.push_back(Point(600,800));
-	ps1.push_back(Point(800, 600));
-	ps1.push_back(Point(800, 0));
-	ps1.push_back(Point(600, 0));
-	ps2.push_back(Point(266.7, 777.1));
-	ps2.push_back(Point(400, 682.8));
-	ps2.push_back(Point(400, 117.1));
-	ps2.push_back(Point(266.7,22.9));
-	Mat h;
-	double f0, f1;
-	bool f0_ok, f1_ok;
-	h = findHomography(ps1, ps2, RANSAC);	
-	
-	cs.focalsFromHomography(h, f0, f1, f0_ok, f1_ok);
-	cout << f0 << " " << f1 << " " << f0_ok << " " << f1_ok << " " << sqrt(f0*f1) << endl;
-	cout << h << endl;*/
-	//cs.calFocus(img1, img2);
-	//Mat img1 = imread("d://r0.png");
-	//Mat img2 = imread("d://r45.png");
-	//namedWindow("img1",1);
-	//setMouseCallback("img1", on_mouse,&img1);
-	//
-	//imshow("img1", img1);
-	//
-	//waitKey(0);
-	//for (int i = 0; i < ps1.size(); i++) {
-	//	cout << ps1[i] << endl;
-	//}
-	//namedWindow("img2", 1);
-	//setMouseCallback("img2", on_mouse2, &img2);
-	//imshow("img2", img2);
-	//waitKey(0);
-	//for (int i = 0; i < ps1.size(); i++) {
-	//	cout << ps2[i] << endl;
-	//}
-	//Mat h;
-	//double f0, f1;
-	//bool f0_ok, f1_ok;
-	////h = cs.getHomography(img1, img2);
-	//Mat t0 = Mat::eye(Size(3, 3), CV_64FC1);
-	//Mat t1 = Mat::eye(Size(3, 3), CV_64FC1);
-	//t0.at<double>(0, 2) = -img1.cols / 2;
-	//t0.at<double>(1, 2) = -img1.rows / 2;
-	//t1.at<double>(0, 2) =  img1.cols / 2;
-	//t1.at<double>(1, 2) =  img1.rows / 2;
-	//h = findHomography(ps1, ps2, RANSAC);
-	//Mat th = t0 * h * t1;
-	//cout << h << endl;
-	//cs.focalsFromHomography(th, f0, f1, f0_ok, f1_ok);
-	//cout << f0 << " " << f1 << " " << f0_ok << " " << f1_ok << " " << sqrt(f0*f1) << endl;
-	//Mat img3;
-	//warpPerspective(img1, img3, h, img1.size());
-	//imshow("3", img3);
-	//waitKey(0);
 }

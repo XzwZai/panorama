@@ -1,13 +1,14 @@
 #pragma once
 #include <opencv2/opencv.hpp>
 #include <opencv2/highgui.hpp>
+#define PI 3.1415926
 using namespace cv;
 
 class MyProjector
 {
 public:
 	float scale;
-	float r_kinv[9], k_rinv[9], k[9], rinv[9];
+	float r_kinv[9], k_rinv[9], k[9], rinv[9], kinv[9];
 	float t[3];
 	void setCameraParams(const Mat &K, const Mat &R)
 		//K表示相机的内参数
@@ -24,6 +25,12 @@ public:
 		k[0] = K_(0, 0); k[1] = K_(0, 1); k[2] = K_(0, 2);
 		k[3] = K_(1, 0); k[4] = K_(1, 1); k[5] = K_(1, 2);
 		k[6] = K_(2, 0); k[7] = K_(2, 1); k[8] = K_(2, 2);
+
+		Mat_<float> Kinv = K.inv();    //得到r的逆，即R-1
+		//得到向量形式的rinv
+		kinv[0] = Kinv(0, 0); kinv[1] = Kinv(0, 1); kinv[2] = Kinv(0, 2);
+		kinv[3] = Kinv(1, 0); kinv[4] = Kinv(1, 1); kinv[5] = Kinv(1, 2);
+		kinv[6] = Kinv(2, 0); kinv[7] = Kinv(2, 1); kinv[8] = Kinv(2, 2);
 
 		Mat_<float> Rinv = R.t();    //得到r的逆，即R-1
 		//得到向量形式的rinv
@@ -48,14 +55,41 @@ public:
 		//t[0] = T_(0, 0); t[1] = T_(1, 0); t[2] = T_(2, 0);
 	}
 	void mapForward(float x, float y, float &u, float &v)    //正向
-	{
+	{		
+		float oldtan = u / scale;
 		//式70
 		float x_ = r_kinv[0] * x + r_kinv[1] * y + r_kinv[2];
 		float y_ = r_kinv[3] * x + r_kinv[4] * y + r_kinv[5];
 		float z_ = r_kinv[6] * x + r_kinv[7] * y + r_kinv[8];
-		//式75
-		u = scale * atan2f(x_, z_);
+		//式75	
+		float tanxz = atan2f(x_, z_);		
+		while (tanxz < oldtan) {
+			tanxz += 2 * PI;
+		}		
+		u = scale * tanxz;
 		v = scale * y_ / sqrtf(x_ * x_ + z_ * z_);
+	}
+
+	float calFirstU()
+	{
+		float x = 0, y = 0;
+		float x_1 = kinv[0] * x + kinv[1] * y + kinv[2];
+		float y_1 = kinv[3] * x + kinv[4] * y + kinv[5];
+		float z_1 = kinv[6] * x + kinv[7] * y + kinv[8];
+		float x_2 = r_kinv[0] * x + r_kinv[1] * y + r_kinv[2];
+		float y_2 = r_kinv[3] * x + r_kinv[4] * y + r_kinv[5];
+		float z_2 = r_kinv[6] * x + r_kinv[7] * y + r_kinv[8];
+		float tanxz_1 = atan2f(x_1, z_1);
+		float tanxz_2 = atan2f(x_2, z_2);
+		if (tanxz_2 >= tanxz_1 && tanxz_2 < 0) {
+			return scale * tanxz_1;
+		}
+		else if (tanxz_2 > 0) {
+			return 0;
+		}
+		else {
+			return PI;
+		}
 	}
 
 	void mapBackward(float u, float v, float &x, float &y)    //反向
@@ -87,17 +121,17 @@ public:
 	{
 		projector.scale = _scale;
 	}
-	Point2f warpPoint(const Point2f &pt, const Mat &K, const Mat &R)
-		//pt表示投射的源点
-		//K表示相机的内参数
-		//R表示相机的旋转参数
-		//该函数返回投射点
-	{
-		projector.setCameraParams(K, R);    //设置相机参数
-		Point2f uv;    //表示投射映射点
-		projector.mapForward(pt.x, pt.y, uv.x, uv.y);    //前向投影，得到投射点
-		return uv;    //返回投射点
-	}
+	//Point2f warpPoint(const Point2f &pt, const Mat &K, const Mat &R)
+	//	//pt表示投射的源点
+	//	//K表示相机的内参数
+	//	//R表示相机的旋转参数
+	//	//该函数返回投射点
+	//{
+	//	projector.setCameraParams(K, R);    //设置相机参数
+	//	Point2f uv;    //表示投射映射点
+	//	projector.mapForward(pt.x, pt.y, uv.x, uv.y);    //前向投影，得到投射点
+	//	return uv;    //返回投射点
+	//}
 
 	
 	Rect buildMaps(Size src_size, const Mat &K, const Mat &R, Mat &xmap, Mat &ymap)
@@ -180,12 +214,18 @@ public:
 		float br_vf = -std::numeric_limits<float>::max();    //先初始化为最小值
 
 		float u, v;
+		float firstU = projector.calFirstU();
 		for (int y = 0; y < src_size.height; ++y)    //遍历源图区域
 		{
+			u = firstU;
 			for (int x = 0; x < src_size.width; ++x)
 			{
+				if (x == 625) {
+					x = x;
+				}
 				//前向映射
 				projector.mapForward(static_cast<float>(x), static_cast<float>(y), u, v);
+				
 				tl_uf = std::min(tl_uf, u); tl_vf = std::min(tl_vf, v);    //更新左上角坐标
 				br_uf = std::max(br_uf, u); br_vf = std::max(br_vf, v);    //更新右下角坐标
 			}
