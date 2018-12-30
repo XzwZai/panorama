@@ -236,27 +236,50 @@ void on_mouse2(int EVENT, int x, int y, int flags, void* userdata) {
 
 void testMyMatcher()
 {
-	Mat img = 
+	Mat img1 = imread("D:/WorkSpace/data/pano/Synthetic/imgs/img01.jpg");
+	Mat img2 = imread("D:/WorkSpace/data/pano/Synthetic/imgs/img02.jpg");
+	resize(img1, img1, imgSize);
+	resize(img2, img2, imgSize);
+	Ptr<Feature2D> sift = xfeatures2d::SIFT::create(1600);
+	Mat descriptors1, descriptors2;
+	vector<KeyPoint> kps1, kps2;
+	Mat imgMatch;
+	sift->detectAndCompute(img1, Mat(), kps1, descriptors1);
+	sift->detectAndCompute(img2, Mat(), kps2, descriptors2);
+	MyMatcher matcher;
+	vector<DMatch> matches;
+	matcher.KDmatch(descriptors1, descriptors2,matches);
+	vector<Point2f> points1, points2;
+	for (size_t i = 0; i < matches.size(); i++)
+	{
+		points1.push_back(kps1[matches[i].queryIdx].pt);
+		points2.push_back(kps2[matches[i].trainIdx].pt);
+	}
+	drawMatches(img1, kps1, img2, kps2, matches, imgMatch);
+	imshow("m", imgMatch);
+	waitKey(0);
+	//matcher.match(descriptors1, descriptors2);
+
 }
 
 int main(int argc, char** argv)
 {
 	
-	ifstream files("D:/WorkSpace/data/pano/Synthetic/imgs.txt");
-	//ifstream files("C:/Users/China/Downloads/example-data/example-data/zijing/imgs.txt");
+	//testMyMatcher();
+	ifstream files("D:/WorkSpace/data/pano/Synthetic/imgs.txt");	
 	string imgpath;
 	vector<Mat> imgs;
 	CylinderStitcher cs;
 	IdealCylinderStitcher ics;
-	//while (files >> imgpath)
-	//{
-	//	Mat img = imread(imgpath);
-	//	resize(img, img, imgSize);		
-	//	imgs.push_back(img);
-	//}
-	//cout << "read imgs" << endl;
-	////cs.stitch(imgs);
-	//ics.stitch(imgs, f);
+	while (files >> imgpath)
+	{
+		Mat img = imread(imgpath);
+		resize(img, img, imgSize);		
+		imgs.push_back(img);
+	}
+	cout << "read imgs" << endl;
+	//cs.stitch(imgs);
+	ics.stitch(imgs);
 	/*Mat mat = (Mat_<double>(6, 2) << 2, 3, 4, 7, 5, 4, 9, 6, 8, 1, 7, 2);
 	Kdtree kdtree(mat);
 	feature* f = (feature*)calloc(1,sizeof(feature));

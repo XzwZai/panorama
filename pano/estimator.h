@@ -17,6 +17,7 @@
 #include "opencv2/stitching/detail/warpers.hpp"
 #include "opencv2/stitching/warpers.hpp"
 #include "camera.h"
+#include "matcher.h"
 using namespace cv;
 using namespace std;
 using namespace detail;
@@ -97,6 +98,25 @@ public:
 		cameras[to].R = cameras[from].R * R;
 	}
 
+	float getFocal(vector<Mat> &imgs)
+	{
+		double focal;
+		vector<Mat> homos;
+		Mat t = Mat::eye(Size(3, 3), CV_64FC1);
+		Mat t_inv = Mat::eye(Size(3, 3), CV_64FC1);
+		t.at<double>(0, 2) = imgs[0].cols / 2;
+		t.at<double>(1, 2) = imgs[0].rows / 2;
+		t_inv.at<double>(0, 2) = -imgs[0].cols / 2;
+		t_inv.at<double>(1, 2) = -imgs[0].rows / 2;
+		for (int i = 1; i < imgs.size(); i++) {
+			Mat h = getHomography(imgs[i - 1], imgs[i]);
+			Mat th = t_inv * h * t;
+			homos.push_back(th);
+		}
+		estimateFocal(homos, focal);
+		return focal;
+	}
+
 	void estimate(vector<Mat> &imgs,vector<Camera> &cameras)
 	{
 		double focal;
@@ -136,13 +156,13 @@ public:
 		}
 	}
 
+	
 	void estimateFocal(vector<Mat> &homos, double &focal)
 	{
 		vector<double> all_focals;
 		double f0, f1;
 		bool f0_ok, f1_ok;
-		
-		float err[2] = { 0.9, 1.1 };
+		float err[2] = { 0.9, 1.1 };		
 		for(int i = 0;i < homos.size();i++) {
 			focalsFromHomography(homos[i], f0, f1, f0_ok, f1_ok);
 			if (f0 / f1 <= err[1] && f0 / f1 >= err[0]) {
@@ -160,41 +180,33 @@ public:
 		cout << focal << endl;
 	}
 
-	void focalsFromHomography(const Mat& H, double &f0, double &f1, bool &f0_ok, bool &f1_ok)
-		//H表示单应矩阵
-		//f0和f1分别表示单应矩阵H所转换的两幅图像的焦距
-		//f0_ok和f1_ok分别表示f0和f1是否评估正确
+	void focalsFromHomography(const Mat& H, double &f0, double &f1, bool &f0_ok, bool &f1_ok)		
 	{
-		//确保H的数据类型和格式正确
 		CV_Assert(H.type() == CV_64F && H.size() == Size(3, 3));
 		//cout << H << endl;
 		const double* h = reinterpret_cast<const double*>(H.data);    //赋值指针
-		//分别表示式43和式44，或式47和式48的分母
-		double d1, d2; // Denominators
-		//分别表示式43和式44，或式47和式48
-		double v1, v2; // Focal squares value candidates
+		double d1, d2;
+		double v1, v2;
 
 		f1_ok = true;
-		d1 = h[6] * h[7];    //式48的分母
-		d2 = (h[7] - h[6]) * (h[7] + h[6]);    //式47的分母
-		v1 = -(h[0] * h[1] + h[3] * h[4]) / d1;    //式48
-		v2 = (h[0] * h[0] + h[3] * h[3] - h[1] * h[1] - h[4] * h[4]) / d2;    //式47
-		if (v1 < v2) std::swap(v1, v2);    //使v1不小于v2
-		//表示到底选取式47还是式48作为f1
+		d1 = h[6] * h[7];    
+		d2 = (h[7] - h[6]) * (h[7] + h[6]);   
+		v1 = -(h[0] * h[1] + h[3] * h[4]) / d1;    
+		v2 = (h[0] * h[0] + h[3] * h[3] - h[1] * h[1] - h[4] * h[4]) / d2;    
+		if (v1 < v2) std::swap(v1, v2);    
 		if (v1 > 0 && v2 > 0) f1 = sqrt(std::abs(d1) > std::abs(d2) ? v1 : v2);
-		else if (v1 > 0) f1 = sqrt(v1);    //v2小于0，则f1一定是v1的平方根
-		else f1_ok = false;    //v1和v2都小于0，则没有得到f1
+		else if (v1 > 0) f1 = sqrt(v1);    
+		else f1_ok = false;    
 
 		f0_ok = true;
-		d1 = h[0] * h[3] + h[1] * h[4];    //式44的分母
-		d2 = h[0] * h[0] + h[1] * h[1] - h[3] * h[3] - h[4] * h[4];    //式43的分母
-		v1 = -h[2] * h[5] / d1;    //式44
-		v2 = (h[5] * h[5] - h[2] * h[2]) / d2;    //式43
-		if (v1 < v2) std::swap(v1, v2);    //使v1不小于v2
-		//表示到底选取式44还是式43作为f0
+		d1 = h[0] * h[3] + h[1] * h[4];    
+		d2 = h[0] * h[0] + h[1] * h[1] - h[3] * h[3] - h[4] * h[4];    
+		v1 = -h[2] * h[5] / d1;   
+		v2 = (h[5] * h[5] - h[2] * h[2]) / d2;    
+		if (v1 < v2) std::swap(v1, v2);    
 		if (v1 > 0 && v2 > 0) f0 = sqrt(std::abs(d1) > std::abs(d2) ? v1 : v2);
-		else if (v1 > 0) f0 = sqrt(v1);    //v2小于0，则f1一定是v1的开根号
-		else f0_ok = false;    //v1和v2都小于0，则没有得到f1
+		else if (v1 > 0) f0 = sqrt(v1);   
+		else f0_ok = false;    
 	}
 
 	Mat getHomography(Mat &img1, Mat& img2)
@@ -205,7 +217,9 @@ public:
 		sift->detectAndCompute(img1, Mat(), kps1, descriptors1);
 		sift->detectAndCompute(img2, Mat(), kps2, descriptors2);
 		vector<DMatch> matches;
-		matcher.match(descriptors1, descriptors2, matches, Mat());
+		MyMatcher mymatcher;
+		mymatcher.KDmatch(descriptors1, descriptors2, matches);
+		//matcher.match(descriptors1, descriptors2, matches, Mat());
 		sort(matches.begin(), matches.end());
 		const int numGoodMatches = matches.size() * 0.15;
 		//matches.erase(matches.begin() + numGoodMatches, matches.end());

@@ -8,6 +8,7 @@
 #include <opencv2/xfeatures2d.hpp>
 #include "estimator.h"
 #include "wraper.h"
+#include "matcher.h"
 using namespace cv;
 using namespace std;
 class CylinderStitcher
@@ -29,8 +30,8 @@ public:
 		{
 			int colNum, rowNum; colNum = 2 * f*atan(0.5*imgIn.cols / f);
 			rowNum = 0.5*imgIn.rows*f / sqrt(pow(f, 2)) + 0.5*imgIn.rows;
-			Mat imgOut = Mat::zeros(rowNum, colNum, CV_8UC3); 
-			imgOut.setTo(255);
+			Mat imgOut = Mat::zeros(rowNum, colNum, imgIn.type()); 
+			//imgOut.setTo(255);
 			int x1(0), y1(0);
 			for (int i = 0; i < imgIn.rows; i++)
 				for (int j = 0; j < imgIn.cols; j++) {
@@ -38,9 +39,27 @@ public:
 					y1 = f * (i - 0.5*imgIn.rows) / sqrt(pow(j - 0.5*imgIn.cols, 2) + pow(f, 2)) + 0.5*imgIn.rows;
 					if (x1 >= 0 && x1 < colNum&&y1 >= 0 && y1 < rowNum) {
 						//im2(y1, x1) = im1(i, j); 
-						imgOut.at<Vec3b>(y1, x1) = imgIn.at<Vec3b>(i, j);
+						if (imgIn.type() == CV_8UC1)
+						{
+							imgOut.at<uchar>(y1, x1) = imgIn.at<uchar>(i, j);
+						}
+						else if (imgIn.type() == CV_8UC3)
+						{
+							imgOut.at<Vec3b>(y1, x1) = imgIn.at<Vec3b>(i, j);
+						}
 					}
 				}
+			/*Mat imgOut;
+			imgOut.create(imgIn.size(), CV_8UC3);
+			imgOut.setTo(255);
+			int x, y;
+			for (int i = 0; i < imgIn.rows; i++) 
+			{
+				for (int j = 0; j < imgIn.cols; j++)
+				{
+					
+				}
+			}*/
 			return imgOut;
 		}
 		else if (mode == 2)
@@ -169,15 +188,20 @@ public:
 		IMG(Mat _img, Mat _homo) { img = _img; homo = _homo; }
 	};
 
-	Mat stitch(vector<Mat> imgs,int f)
+	Mat stitch(vector<Mat> imgs, float f = 660)
 	{		
+		MyEstimator estimator;				
+		f = estimator.getFocal(imgs);
+		cout << "focal: " << f << endl;
 		vector<Mat> masks_warped;
 		for (int i = 0; i < imgs.size(); i++)
 		{
-			imgs[i] = cylindrical(imgs[i], f, 1);
 			Mat mask;
+			mask.create(imgs[i].size(), CV_8UC1);
+			mask.setTo(Scalar::all(255));
 			mask = cylindrical(mask, f, 1);
 			masks_warped.push_back(mask);
+			imgs[i] = cylindrical(imgs[i], f, 1);
 		}
 		cout << "cylindrical" << endl;
 		vector<IMG> IMGs;
@@ -215,8 +239,8 @@ public:
 		sift->detectAndCompute(img1, Mat(), kps1, descriptors1);
 		sift->detectAndCompute(img2, Mat(), kps2, descriptors2);
 		vector<DMatch> matches, matches1;
-		cout << kps1.size() << descriptors1.rows << descriptors1.cols << endl;
-		matcher.match(descriptors1, descriptors2, matches, Mat());
+		MyMatcher mymatcher;
+		mymatcher.KDmatch(descriptors1, descriptors2, matches);
 		float horizonTrans, totalTrans(0);
 		for (vector<DMatch>::iterator it = matches.begin(); it != matches.end(); it++)
 		{
