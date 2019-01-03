@@ -9,6 +9,7 @@
 #include "estimator.h"
 #include "wraper.h"
 #include "matcher.h"
+
 using namespace cv;
 using namespace std;
 class CylinderStitcher
@@ -171,6 +172,8 @@ protected:
 	BFMatcher matcher;
 };
 
+
+
 class IdealCylinderStitcher : public CylinderStitcher
 {
 public:
@@ -188,7 +191,7 @@ public:
 		IMG(Mat _img, Mat _homo) { img = _img; homo = _homo; }
 	};
 
-	Mat stitch(vector<Mat> imgs, float f = 660)
+	Mat stitch(vector<Mat> imgs, float f = 800)
 	{		
 		MyEstimator estimator;				
 		f = estimator.getFocal(imgs);
@@ -205,34 +208,75 @@ public:
 		}
 		cout << "cylindrical" << endl;
 		vector<IMG> IMGs;
+		vector<Point> cornors;
 		Mat homo = Mat::eye(Size(3, 3), CV_64FC1);	
 		Mat h;
 		homo.copyTo(h);
 		IMG img(imgs[0], h);
 		IMGs.push_back(img);
+		Point cuCornor(0,0);
+		cornors.push_back(Point(0, 0));
 		for (int i = 1; i < imgs.size(); i++)
 		{
-			Mat h = homo * getHomography(imgs[i - 1], imgs[i]);
-			
-			IMGs.push_back(IMG(imgs[i], h));
-			h.copyTo(homo);
+			Point cornor = cuCornor + getTrans(imgs[i - 1], imgs[i]);	
+			cornors.push_back(cornor);
+			//IMGs.push_back(IMG(imgs[i], h));
+			cuCornor.x = cornor.x;
+			cuCornor.y = cornor.y;
 		}
 		cout << "homo computed" << endl;
-		Size finalSize = Size(IMGs[0].img.cols + homo.at<double>(0, 2), IMGs[0].img.rows);
-		Mat stitch = Mat::zeros(finalSize, CV_8UC3);
-		for (int i = 0; i < IMGs.size(); i++)
+		vector<Point> ps;
+		for (int i = 0; i < cornors.size(); i++) {
+			ps.push_back(cornors[i]);
+			Point br;
+			br.x = cornors[i].x + imgs[i].size().width;
+			br.y = cornors[i].y + imgs[i].size().height;
+			ps.push_back(br);
+		}
+		Rect bound = boundingRect(ps);
+		Mat result = Mat::zeros(bound.size(), CV_8UC3);
+		int right;
+
+		for (int i = 0; i < imgs.size(); i++)
 		{
-			Rect r = Rect(IMGs[i].homo.at<double>(0, 2), 0, IMGs[i].img.cols, IMGs[i].img.rows);
-			IMGs[i].img.copyTo(stitch(r), masks_warped[i]);
-			/*imshow("1", stitch);
-			waitKey(0);*/
-		}		
-		imshow("stitch", stitch);
-		imwrite("idealcs.jpg", stitch);
-		return stitch;
+			Point cornor = cornors[i];
+			cornor.x -= bound.tl().x;
+			cornor.y -= bound.tl().y;
+			Rect rect(cornor.x, cornor.y, imgs[i].size().width, imgs[i].size().height);
+			if (i == 0)
+			{
+				imgs[i].copyTo(result(rect), masks_warped[i]);
+				right = rect.x + rect.width;
+			}
+			else {
+				for (int r = 0; r < masks_warped[i].rows; r++)
+				{
+					for (int c = 0; c < masks_warped[i].cols; c++) 
+					{
+						if (masks_warped[i].at<uchar>(r, c) != 0) {
+							if (c + rect.x < right) {
+								float d = c * 1.0f / (right - rect.x);
+								Vec3b color = (1 - d)*result.at<Vec3b>(rect.y + r, rect.x + c) + d * imgs[i].at<Vec3b>(r, c);
+								result.at<Vec3b>(rect.y + r, rect.x + c) = color;
+							}
+							else {
+								Vec3b color = imgs[i].at<Vec3b>(r, c);
+								result.at<Vec3b>(rect.y + r, rect.x + c) = color;
+							}
+						}
+					}
+				}
+				right = rect.x + rect.width;
+			}
+		}
+		imshow("stitch", result);
+		waitKey(0);
+		imwrite("idealcs.jpg", result);
+		return result;
+		
 	}
 
-	Mat getHomography(Mat& img1, Mat& img2)
+	Mat getHoriHomography(Mat& img1, Mat& img2)
 	{
 		vector<KeyPoint> kps1, kps2;
 		Mat descriptors1, descriptors2;
@@ -241,6 +285,10 @@ public:
 		vector<DMatch> matches, matches1;
 		MyMatcher mymatcher;
 		mymatcher.KDmatch(descriptors1, descriptors2, matches);
+		Mat img;
+		drawMatches(img1, kps1, img2, kps2, matches, img);
+		imshow("1", img);
+		waitKey(0);
 		float horizonTrans, totalTrans(0);
 		for (vector<DMatch>::iterator it = matches.begin(); it != matches.end(); it++)
 		{
@@ -255,6 +303,64 @@ public:
 		Mat h = Mat::eye(Size(3, 3), CV_64FC1);
 		h.at<double>(0, 2) = horizonTrans;		
 		return h;
+	}
+
+	Point getTrans(Mat& img1, Mat& img2)
+	{
+		vector<KeyPoint> kps1, kps2;
+		Mat descriptors1, descriptors2;
+		sift->detectAndCompute(img1, Mat(), kps1, descriptors1);
+		sift->detectAndCompute(img2, Mat(), kps2, descriptors2);
+		vector<DMatch> matches, matches1;
+		MyMatcher mymatcher;
+		mymatcher.KDmatch(descriptors1, descriptors2, matches);
+		//cout << "match" << endl;
+		/*Mat img;
+		drawMatches(img1, kps1, img2, kps2, matches, img);
+		imshow("1", img);
+		waitKey(0);*/
+		int maxT = 20;
+		float err = 0.1;
+		int maxinlinenum = 0;
+		vector<int> maxinlineindexs;
+		for (int t = 0; t < maxT; t++)
+		{
+			int choose = rand() % matches.size();
+			int xoff = kps1[matches[choose].queryIdx].pt.x - kps2[matches[choose].trainIdx].pt.x;
+			int yoff = kps1[matches[choose].queryIdx].pt.y - kps2[matches[choose].trainIdx].pt.y;
+			vector<int> indexs;
+			int inlinenum = 0;
+			int index = 0;
+			for (vector<DMatch>::iterator it = matches.begin(); it != matches.end(); it++)
+			{
+				int txoff = kps1[(*it).queryIdx].pt.x - kps2[(*it).trainIdx].pt.x;
+				int tyoff = kps1[(*it).queryIdx].pt.y - kps2[(*it).trainIdx].pt.y;
+				int xerr = txoff - xoff;
+				int yerr = tyoff - yoff;
+				if (sqrt(xerr*xerr + yerr * yerr) < err * sqrt(xoff*xoff + yoff * yoff))
+				{
+					inlinenum++;
+					indexs.push_back(index);
+				}
+				index++;
+			}
+			if (inlinenum > maxinlinenum)
+			{
+				maxinlinenum = inlinenum;
+				maxinlineindexs = indexs;
+			}
+			//cout << t << " ";
+		}
+		int totalxoff = 0,totalyoff = 0;
+		for (int i = 0; i < maxinlinenum; i++)
+		{
+			int index = maxinlineindexs[i];
+			totalxoff += kps1[matches[index].queryIdx].pt.x - kps2[matches[index].trainIdx].pt.x;
+			totalyoff += kps1[matches[index].queryIdx].pt.y - kps2[matches[index].trainIdx].pt.y;
+		}
+		cout << totalxoff / maxinlinenum << ", " << totalyoff / maxinlinenum <<endl;
+		Point p(totalxoff / maxinlinenum, totalyoff / maxinlinenum);
+		return p;
 	}
 
 private:

@@ -132,8 +132,7 @@ public:
 			Mat th = t_inv * h * t;
 			homos.push_back(th);
 		}
-		estimateFocal(homos, focal);
-		//focal = 660;
+		estimateFocal(homos, focal);		
 		for (int i = 0; i < imgs.size(); i++) {
 			Camera c = Camera();
 			c.focal = focal;			
@@ -246,7 +245,7 @@ public:
 				points2.push_back(kps2[matches[i].trainIdx].pt);
 			}
 		}		
-		drawMatches(img1, kps1, img2, kps2, matches1, imgMatch);
+		/*drawMatches(img1, kps1, img2, kps2, matches1, imgMatch);*/
 		/*imshow("match1", imgMatch);
 		waitKey(0);*/
 		if (inlineMask.size() > 0) {
@@ -255,8 +254,8 @@ public:
 		else {
 			confidence = 0;
 		}
-		cout << confidence;	
-		inlineMask.clear();
+		cout << confidence << endl;	
+		/*inlineMask.clear();
 		inlineNum = 0;
 		h = findHomography(points2, points1, inlineMask, RANSAC);
 
@@ -275,7 +274,7 @@ public:
 		}
 		cout << " " << confidence << endl;
 		
-		drawMatches(img1, kps1, img2, kps2, matches2, imgMatch);
+		drawMatches(img1, kps1, img2, kps2, matches2, imgMatch);*/
 		/*imshow("match2", imgMatch);
 		waitKey(0);*/
 		//waitKey(0);
